@@ -11,6 +11,7 @@ logging.basicConfig(level=logging.INFO)
 
 WEBHOOK_PATH = "/webhook"
 
+
 @bot.message_handler(commands=['start'])
 def start(message):
     try:
@@ -18,18 +19,21 @@ def start(message):
     except Exception as ex:
         logging.error(f"Error in start handler: {ex}")
 
-@bot.message_handler(func=lambda m: True)
-def echo_all(message):
+
+BOT_USERNAMES = ["assistant","Assistant","bot", "بات"]
+
+def reply_to_message(message):
     try:
-        logging.info(f"Echoing message: {message.text}")
-        bot.reply_to(message, message.text)
+        logging.info(f"Replying to mention: {message.text}")
+        bot.reply_to(message, f"{message.text}")
     except Exception as ex:
-        logging.error(f"Error in echo handler: {ex}")
+        logging.error(f"Error in mention handler: {ex}")
 
 
 @app.route('/')
 def index():
-    return "سلام! Webhook ربات فعاله ✅"
+    return "! Webhook ربات فعاله ✅"
+
 
 @app.route(WEBHOOK_PATH, methods=['POST'])
 def getMessage():
@@ -37,11 +41,13 @@ def getMessage():
         json_str = request.get_data().decode('utf-8')
         update = telebot.types.Update.de_json(json_str)
 
-        if hasattr(update, "message") and hasattr(update.message, "text"):
-            logging.info(f"Directly calling echo_all for: {update.message.text}")
-            echo_all(update.message)
+        if hasattr(update.message, "text"):
+            text = update.message.text.lower()
+            is_private = update.message.chat.type == "private"
+            is_mentioned = any(name in text for name in BOT_USERNAMES)
 
-        bot.process_new_updates([update])
+        if is_private or is_mentioned:
+            reply_to_message(update.message)
         logging.info("Update processed")
     except Exception as ex:
         logging.error(f"Error processing update: {ex}")
