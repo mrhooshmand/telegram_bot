@@ -4,65 +4,43 @@ import logging
 
 TOKEN = "8263720925:AAHjNG9dFBqN4WSbHF_VvEvS40pSMQN5Wuc"
 
-bot = telebot.TeleBot(TOKEN)
+bot = telebot.TeleBot(TOKEN, threaded=False)
 app = Flask(__name__)
 
 logging.basicConfig(level=logging.INFO)
 
 WEBHOOK_PATH = "/webhook"
 
+BOT_USERNAMES = ["assistant", "bot", "بات"]
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    try:
-        bot.reply_to(message, "سلام ✌️ من روی PythonAnywhere فعالم.")
-    except Exception as ex:
-        logging.error(f"Error in start handler: {ex}")
+    bot.reply_to(message, "سلام ✌️ من روی PythonAnywhere فعالم.")
 
-
-BOT_USERNAMES = ["assistant","Assistant","bot", "بات"]
-
+@bot.message_handler(func=lambda m: m.text and (
+        m.chat.type == "private" or any(name in m.text.lower() for name in BOT_USERNAMES)
+))
 def reply_to_message(message):
-    try:
-        logging.info(f"Replying to mention: {message.text}")
-        bot.reply_to(message, f"{message.text}")
-    except Exception as ex:
-        logging.error(f"Error in mention handler: {ex}")
+    logging.info(f"Replying to message: {message.text}")
+    bot.reply_to(message, f"{message.text}")
 
-
-@app.route('/')
+@app.route('/', methods=['GET'])
 def index():
-    return "! Webhook ربات فعاله ✅"
-
+    return "Webhook ربات فعاله ✅"
 
 @app.route(WEBHOOK_PATH, methods=['POST'])
-def getMessage():
+def webhook():
     try:
-        json_str = request.get_data().decode('utf-8')
-        update = telebot.types.Update.de_json(json_str)
-
-        if hasattr(update.message, "text"):
-            text = update.message.text.lower()
-            is_private = update.message.chat.type == "private"
-            is_mentioned = any(name in text for name in BOT_USERNAMES)
-
-        if is_private or is_mentioned:
-            reply_to_message(update.message)
-        logging.info("Update processed")
+        update = telebot.types.Update.de_json(request.stream.read().decode("utf-8"))
+        bot.process_new_updates([update])   # این باید هندلرها رو تریگر کنه
+        return "ok", 200
     except Exception as ex:
         logging.error(f"Error processing update: {ex}")
         return f"Error: {ex}", 500
-    return "ok", 200
-
 
 @app.route('/setwebhook')
 def set_webhook():
-    try:
-        bot.remove_webhook()
-        url = f"https://hooshmand.pythonanywhere.com{WEBHOOK_PATH}"
-        bot.set_webhook(url=url)
-        logging.info(f"Webhook set to {url}")
-        return f"Webhook set to {url}", 200
-    except Exception as ex:
-        logging.error(f"Error setting webhook: {ex}")
-        return f"Error setting webhook: {ex}", 500
+    bot.remove_webhook()
+    url = f"https://hooshmand.pythonanywhere.com{WEBHOOK_PATH}"
+    bot.set_webhook(url)
+    return f"Webhook set to {url}", 200
