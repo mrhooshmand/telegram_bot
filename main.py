@@ -1,11 +1,14 @@
+import os
 import telebot
 from flask import Flask, request
 import logging
 from google import genai
 from google.genai import types
+from dotenv import load_dotenv
 
-TOKEN = "8263720925:AAHjNG9dFBqN4WSbHF_VvEvS40pSMQN5Wuc"
-GEMINI_API_KEY = "AIzaSyDnCASN4zfhGw-pgTwttv40cfLzm0P491w"
+load_dotenv()
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 bot = telebot.TeleBot(TOKEN, threaded=False)
 app = Flask(__name__)
