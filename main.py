@@ -7,6 +7,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from pytz import timezone
 from google import genai
 from google.genai import types
+from weather import get_weather
 
 # بارگذاری متغیرها از .env
 load_dotenv()
@@ -54,16 +55,42 @@ def send_chat_id(message):
 
 
 # هندلر چت خصوصی یا منشن در گروه
-BOT_USERNAMES = ["assistant", "bot", "بات"]
+BOT_USERNAMES = ["assistant", "bot", "باتی", "بات"]
 
-@bot.message_handler(func=lambda m: m.text and (
-        m.chat.type == "private" or any(name in m.text.lower() for name in BOT_USERNAMES)
+def clean_message(text: str) -> str:
+    for word in BOT_USERNAMES:
+        text = text.replace(word, "")
+    return " ".join(text.split())  # حذف فاصله‌های اضافه
+
+@bot.message_handler(func=lambda m: m.text and not m.text.startswith('/') and (
+        m.chat.type == "private" or
+        any(name in m.text.lower() for name in BOT_USERNAMES) or
+        (m.reply_to_message and m.reply_to_message.from_user.is_bot) or
+        any(f"@{name.lower()}" in m.text.lower() for name in BOT_USERNAMES)
 ))
-def reply_to_ai(message):
+def reply_to_message(message):
+    # کد پاکسازی و ارسال به AI
     user_text = message.text
-    ai_response = ask_gemini(user_text)
-    bot.reply_to(message, ai_response)
-    logging.info(f"AI reply sent: {ai_response}")
+    for word in BOT_USERNAMES + [f"@{name}" for name in BOT_USERNAMES]:
+        user_text = user_text.replace(word, "")
+    user_text = " ".join(user_text.split())
+
+    if user_text.strip() == '':
+        bot.reply_to(message, 'بله، بفرمایین 🙂')
+    else:
+        ai_response = ask_gemini(user_text)
+        bot.reply_to(message, ai_response)
+        logging.info(f"AI reply sent: {ai_response}")
+
+def reply_to_message(message):
+    user_text = clean_message(message.text)
+
+    if user_text.strip() == '':
+        bot.reply_to(message, 'بله، بفرمایین 🙂')
+    else:
+        ai_response = ask_gemini(user_text)
+        bot.reply_to(message, ai_response)
+        logging.info(f"AI reply sent: {ai_response}")
 
 
 # پیام‌های زمان‌بندی شده
@@ -72,7 +99,7 @@ EVENING_MESSAGE = "السلام علیک یا علی ابن موسی الرضا 
 
 def send_morning_message():
     try:
-        bot.send_message(CHAT_ID, MORNING_MESSAGE)
+        bot.send_message(chat_id=GROUP_ID, text=MORNING_MESSAGE)
         logging.info("Morning message sent")
     except Exception as e:
         logging.error(f"Error sending morning message: {e}")
@@ -80,15 +107,39 @@ def send_morning_message():
 def send_evening_message():
     try:
         bot.send_photo(CHAT_ID, photo=open('haram.jpg', "rb"), caption=EVENING_MESSAGE)
+        bot.send_photo(GROUP_ID, photo=open('haram.jpg', "rb"), caption=EVENING_MESSAGE)
         print("Evening message sent")
     except Exception as e:
         print(f"Error sending evening message: {e}")
 
+def show_weather():
+    try:
+        weather_data=get_weather('mashhad')
+        bot.send_message(chat_id=CHAT_ID, text=f"{weather_data}")
+    except Exception as e:
+        print(f"Error sending evening message: {e}")
 
-# زمان‌بندی برای ساعت ۸ صبح و ۸ شب به وقت تهران
+@bot.message_handler(commands=['weather'])
+def chat_weather(message):
+    chat_id = message.chat.id
+    try:
+        weather_data=get_weather('mashhad')
+        # photo_url = weather_data.current.condition.icon
+        # caption_text = f"دمای فعلی: {weather_data.current.temp_c}°C\nوضعیت: {weather_data.current.condition.text}"
+        # print(weather_data)
+        # bot.send_photo(CHAT_ID, photo=photo_url, caption=caption_text)
+        bot.reply_to(message, f"{weather_data}")
+    except Exception as e:
+        print(f"Error sending evening message: {e}")
+    print(f"Chat ID: {chat_id}")  # در کنسول هم چاپ می‌شود
+
+# زمان‌بندی ب به وقت تهران
 scheduler = BackgroundScheduler(timezone=timezone("Asia/Tehran"))
-scheduler.add_job(send_morning_message, "cron", hour=8, minute=0)
+scheduler.add_job(send_morning_message, "cron", hour=5, minute=0)
+scheduler.add_job(send_evening_message, "cron", hour=8, minute=0)
+scheduler.add_job(show_weather, "cron", hour=7, minute=0)
 scheduler.add_job(send_evening_message, "cron", hour=20, minute=0)
+
 scheduler.start()
 
 
