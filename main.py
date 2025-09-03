@@ -82,16 +82,6 @@ def reply_to_message(message):
         bot.reply_to(message, ai_response)
         logging.info(f"AI reply sent: {ai_response}")
 
-def reply_to_message(message):
-    user_text = clean_message(message.text)
-
-    if user_text.strip() == '':
-        bot.reply_to(message, 'بله، بفرمایین 🙂')
-    else:
-        ai_response = ask_gemini(user_text)
-        bot.reply_to(message, ai_response)
-        logging.info(f"AI reply sent: {ai_response}")
-
 
 # پیام‌های زمان‌بندی شده
 MORNING_MESSAGE = "☀️ صبح بخیر! امیدوارم روز فوق‌العاده‌ای شروع کنید."
@@ -104,7 +94,7 @@ def send_morning_message():
     except Exception as e:
         logging.error(f"Error sending morning message: {e}")
 
-def send_evening_message():
+def send_8_message():
     try:
         bot.send_photo(CHAT_ID, photo=open('haram.jpg', "rb"), caption=EVENING_MESSAGE)
         bot.send_photo(GROUP_ID, photo=open('haram.jpg', "rb"), caption=EVENING_MESSAGE)
@@ -115,7 +105,10 @@ def send_evening_message():
 def show_weather():
     try:
         weather_data=get_weather('mashhad')
-        bot.send_message(chat_id=CHAT_ID, text=f"{weather_data}")
+        weather_icon=weather_data['current']['condition']['icon']
+        caption_text = '.....\n '+(f"دمای فعلی: {weather_data['current']['temp_c']} °C\nوضعیت: {weather_data['current']['condition']['text']}\n "
+                                   f"اشعه فرابنفش:{weather_data['current']['uv']}\n  دمای محسوس:{weather_data['current']['feelslike_c']} °C \n")+'.....'
+        bot.send_photo(GROUP_ID, photo=weather_icon.replace('//', ""), caption=caption_text)
     except Exception as e:
         print(f"Error sending evening message: {e}")
 
@@ -124,11 +117,10 @@ def chat_weather(message):
     chat_id = message.chat.id
     try:
         weather_data=get_weather('mashhad')
-        # photo_url = weather_data.current.condition.icon
-        # caption_text = f"دمای فعلی: {weather_data.current.temp_c}°C\nوضعیت: {weather_data.current.condition.text}"
-        # print(weather_data)
-        # bot.send_photo(CHAT_ID, photo=photo_url, caption=caption_text)
-        bot.reply_to(message, f"{weather_data}")
+        weather_icon=weather_data['current']['condition']['icon']
+        caption_text = '.....\n '+(f"دمای فعلی: {weather_data['current']['temp_c']} °C\nوضعیت: {weather_data['current']['condition']['text']}\n "
+                                   f"اشعه فرابنفش:{weather_data['current']['uv']}\n  دمای محسوس:{weather_data['current']['feelslike_c']} °C \n")+'.....'
+        bot.send_photo(chat_id, photo=weather_icon.replace('//', ""), caption=caption_text)
     except Exception as e:
         print(f"Error sending evening message: {e}")
     print(f"Chat ID: {chat_id}")  # در کنسول هم چاپ می‌شود
@@ -136,9 +128,10 @@ def chat_weather(message):
 # زمان‌بندی ب به وقت تهران
 scheduler = BackgroundScheduler(timezone=timezone("Asia/Tehran"))
 scheduler.add_job(send_morning_message, "cron", hour=5, minute=0)
-scheduler.add_job(send_evening_message, "cron", hour=8, minute=0)
 scheduler.add_job(show_weather, "cron", hour=7, minute=0)
-scheduler.add_job(send_evening_message, "cron", hour=20, minute=0)
+scheduler.add_job(send_8_message, "cron", hour=8, minute=0)
+scheduler.add_job(show_weather, "cron", hour=17, minute=0)
+scheduler.add_job(send_8_message, "cron", hour=20, minute=0)
 
 scheduler.start()
 
