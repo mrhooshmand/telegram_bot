@@ -1,11 +1,9 @@
+import sys
 
-# A very simple Flask Hello World app for you to get started with...
+# مسیر پروژه (همه فایل‌ها در /home/hooshmand قرار دارند)
+project_home = '/home/hooshmand'
+if project_home not in sys.path:
+    sys.path.insert(0, project_home)
 
-from flask import Flask
-
-app = Flask(__name__)
-
-@app.route('/')
-def hello_world():
-    return 'Hello from Flask!'
-
+# وارد کردن Flask app
+from main import app as application
