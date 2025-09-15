@@ -1,6 +1,6 @@
 import telebot
 from flask import Flask, request
-import logging
+import logger
 import os
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -20,7 +20,6 @@ GROUP_ID = int(os.getenv("GROUP_ID"))  # گروه خانواده
 # تنظیمات ربات و لاگ
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
-logging.basicConfig(level=logging.INFO)
 
 WEBHOOK_PATH = "/webhook"
 
@@ -36,10 +35,11 @@ def ask_gemini(prompt):
                 thinking_config=types.ThinkingConfig(thinking_budget=0)
             ),
         )
+        logger.log_message(f"Gemini: {response.text}")
         return response.text
     except Exception as e:
-        logging.error(f"Gemini API error: {e}")
-        return "⚠️ مشکلی در ارتباط با Gemini پیش اومد."
+        logger.log_message(f"Gemini API error: {e}")
+        return "چی گفتی ؟؟ دوباره بگو"
 
 
 # هندلر شروع
@@ -80,7 +80,6 @@ def reply_to_message(message):
     else:
         ai_response = ask_gemini(user_text)
         bot.reply_to(message, ai_response)
-        logging.info(f"AI reply sent: {ai_response}")
 
 
 # پیام‌های زمان‌بندی شده
@@ -90,55 +89,53 @@ EVENING_MESSAGE = "السلام علیک یا علی ابن موسی الرضا 
 def send_morning_message():
     try:
         bot.send_message(chat_id=GROUP_ID, text=MORNING_MESSAGE)
-        logging.info("Morning message sent")
+        logger.log_message("Morning message sent")
     except Exception as e:
-        logging.error(f"Error sending morning message: {e}")
+        logger.log_message(f"Error sending morning message: {e}")
 
 def send_8_message():
     try:
         bot.send_photo(CHAT_ID, photo=open('haram.jpg', "rb"), caption=EVENING_MESSAGE)
         bot.send_photo(GROUP_ID, photo=open('haram.jpg', "rb"), caption=EVENING_MESSAGE)
-        print("Evening message sent")
+
+        logger.log_message("Evening message sent")
     except Exception as e:
-        print(f"Error sending evening message: {e}")
+        logger.log_message(f"Error sending evening message: {e}")
 
 def show_weather():
     try:
         weather_data=get_weather('mashhad')
-        weather_icon=weather_data['current']['condition']['icon']
-        caption_text = '.....\n '+(f"دمای فعلی: {weather_data['current']['temp_c']} °C\nوضعیت: {weather_data['current']['condition']['text']}\n "
-                                   f"اشعه فرابنفش:{weather_data['current']['uv']}\n  دمای محسوس:{weather_data['current']['feelslike_c']} °C \n")+'.....'
+        weather_icon=weather_data['data']['current']['condition']['icon']
+        caption_text = weather_data['text']
         bot.send_photo(GROUP_ID, photo=weather_icon.replace('//', ""), caption=caption_text)
     except Exception as e:
-        print(f"Error sending evening message: {e}")
+        logger.log_message(f"Error sending evening message: {e}")
+
 
 @bot.message_handler(commands=['weather'])
 def chat_weather(message):
     chat_id = message.chat.id
     try:
         weather_data=get_weather('mashhad')
-        weather_icon=weather_data['current']['condition']['icon']
-        caption_text = '.....\n '+(f"دمای فعلی: {weather_data['current']['temp_c']} °C\nوضعیت: {weather_data['current']['condition']['text']}\n "
-                                   f"اشعه فرابنفش:{weather_data['current']['uv']}\n  دمای محسوس:{weather_data['current']['feelslike_c']} °C \n")+'.....'
+        weather_icon=weather_data['data']['current']['condition']['icon']
+        caption_text = weather_data['text']
         bot.send_photo(chat_id, photo=weather_icon.replace('//', ""), caption=caption_text)
     except Exception as e:
-        print(f"Error sending evening message: {e}")
-    print(f"Chat ID: {chat_id}")  # در کنسول هم چاپ می‌شود
+        logger.log_message(f"Error in Weather API: {e}")
+
 
 # زمان‌بندی ب به وقت تهران
 scheduler = BackgroundScheduler(timezone=timezone("Asia/Tehran"))
 scheduler.add_job(send_morning_message, "cron", hour=5, minute=0)
 scheduler.add_job(show_weather, "cron", hour=7, minute=0)
 scheduler.add_job(send_8_message, "cron", hour=8, minute=0)
-scheduler.add_job(show_weather, "cron", hour=17, minute=0)
-scheduler.add_job(send_8_message, "cron", hour=20, minute=0)
-
+scheduler.add_job(show_weather, "cron", hour=19, minute=0)
 scheduler.start()
 
 
 @app.route('/', methods=['GET'])
 def index():
-    return "Webhook ربات فعال ✅"
+    return "بات فعاله ✅"
 
 @app.route(WEBHOOK_PATH, methods=['POST'])
 def webhook():
@@ -147,7 +144,7 @@ def webhook():
         bot.process_new_updates([update])
         return "ok", 200
     except Exception as ex:
-        logging.error(f"Error processing update: {ex}")
+        logger.log_message(f"Error processing update: {ex}")
         return f"Error: {ex}", 500
 
 @app.route('/setwebhook')
