@@ -13,7 +13,6 @@ from weather import get_weather
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
-CHAT_ID = int(os.getenv("CHAT_ID"))  # گروه من
 GROUP_ID = int(os.getenv("GROUP_ID"))  # گروه خانواده
 
 
@@ -39,7 +38,7 @@ def ask_gemini(prompt):
         return response.text
     except Exception as e:
         logger.log_message(f"Gemini API error: {e}")
-        return "چی گفتی ؟؟ دوباره بگو"
+        return "چی شده؟"
 
 
 # هندلر شروع
@@ -95,10 +94,8 @@ def send_morning_message():
 
 def send_8_message():
     try:
-        bot.send_photo(CHAT_ID, photo=open('haram.jpg', "rb"), caption=EVENING_MESSAGE)
         bot.send_photo(GROUP_ID, photo=open('haram.jpg', "rb"), caption=EVENING_MESSAGE)
-
-        logger.log_message("Evening message sent")
+        logger.log_message("8 message sent")
     except Exception as e:
         logger.log_message(f"Error sending evening message: {e}")
 
@@ -120,13 +117,14 @@ def chat_weather(message):
         weather_icon=weather_data['data']['current']['condition']['icon']
         caption_text = weather_data['text']
         bot.send_photo(chat_id, photo=weather_icon.replace('//', ""), caption=caption_text)
+        logger.log_message(f"Call Weather API")
     except Exception as e:
         logger.log_message(f"Error in Weather API: {e}")
 
 
 # زمان‌بندی ب به وقت تهران
 scheduler = BackgroundScheduler(timezone=timezone("Asia/Tehran"))
-scheduler.add_job(send_morning_message, "cron", hour=5, minute=0)
+scheduler.add_job(send_morning_message, "cron", hour=6, minute=0)
 scheduler.add_job(show_weather, "cron", hour=7, minute=0)
 scheduler.add_job(send_8_message, "cron", hour=8, minute=0)
 scheduler.add_job(show_weather, "cron", hour=19, minute=0)
